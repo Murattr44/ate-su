@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ateş & Su: Romantik Oyun</title>
+<style>
+  body { margin:0; overflow:hidden; font-family:Arial, sans-serif; background:linear-gradient(to top, #ffe6f0, #fff0f5);}
+  #gameCanvas { display:block; background:#ccf0ff; margin:0 auto;}
+  #controls { position: fixed; bottom: 20px; width: 100%; display:flex; justify-content:center; gap:20px;}
+  .btn { background-color: #ff99cc; border:none; padding:20px; border-radius:50%; font-size:24px; color:white; cursor:pointer; user-select:none;}
+  .dualBtn { display:flex; flex-direction:column; gap:10px;}
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+
+<div id="controls">
+  <div class="dualBtn">
+    <button class="btn" id="leftBtn">⬅️</button>
+    <button class="btn" id="jumpBtn">⬆️</button>
+    <button class="btn" id="rightBtn">➡️</button>
+    <div style="font-size:14px;color:#cc0066;">Ateş</div>
+  </div>
+  <div class="dualBtn">
+    <button class="btn" id="leftBtn2">⬅️</button>
+    <button class="btn" id="jumpBtn2">⬆️</button>
+    <button class="btn" id="rightBtn2">➡️</button>
+    <div style="font-size:14px;color:#3366ff;">Su</div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const gravity = 0.6;
+let keys = { left:false, right:false, jump:false, left2:false, right2:false, jump2:false };
+
+class Player {
+  constructor(x, y, color) {
+    this.x = x; this.y = y; this.width = 40; this.height = 40;
+    this.color = color;
+    this.vx = 0; this.vy = 0;
+    this.onGround = false;
+  }
+  draw(){ ctx.fillStyle=this.color; ctx.fillRect(this.x,this.y,this.width,this.height);}
+  update(){
+    this.vy += gravity; this.y += this.vy; this.x += this.vx;
+    if(this.y + this.height > canvas.height){ this.y = canvas.height-this.height; this.vy=0; this.onGround=true; } else { this.onGround=false;}
+    if(this.x<0) this.x=0; if(this.x+this.width>canvas.width) this.x=canvas.width-this.width;
+  }
+}
+
+class Platform {
+  constructor(x,y,w,h){ this.x=x; this.y=y; this.w=w; this.h=h;}
+  draw(){ ctx.fillStyle='#ff99cc'; ctx.fillRect(this.x,this.y,this.w,this.h);}
+}
+
+class Surprise {
+  constructor(x,y){ this.x=x; this.y=y; this.size=20; this.collected=false;}
+  draw(){ if(!this.collected){ ctx.fillStyle='pink'; ctx.beginPath(); ctx.arc(this.x+10,this.y+10,this.size/2,0,Math.PI*2); ctx.fill();}}
+}
+
+const player1 = new Player(50,500,'#ff3366'); // Ateş
+const player2 = new Player(100,500,'#3366ff'); // Su
+
+const platforms = [
+  new Platform(0,580,400,20),
+  new Platform(50,450,100,15),
+  new Platform(200,350,100,15),
+  new Platform(100,250,100,15),
+  new Platform(250,150,100,15)
+];
+
+const surprises = [
+  new Surprise(80,410),
+  new Surprise(220,310),
+  new Surprise(130,210),
+  new Surprise(280,110)
+];
+
+function drawHearts(count){
+  for(let i=0;i<count;i++){
+    const heartX = Math.random()*canvas.width;
+    const heartY = Math.random()*canvas.height;
+    ctx.fillStyle='red'; ctx.font='24px Arial'; ctx.fillText('💖',heartX,heartY);
+  }
+}
+
+function gameLoop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Player1 movement
+  if(keys.left) player1.vx=-4; else if(keys.right) player1.vx=4; else player1.vx=0;
+  if(keys.jump && player1.onGround) player1.vy=-12;
+
+  // Player2 movement
+  if(keys.left2) player2.vx=-4; else if(keys.right2) player2.vx=4; else player2.vx=0;
+  if(keys.jump2 && player2.onGround) player2.vy=-12;
+
+  player1.update(); player2.update();
+  player1.draw(); player2.draw();
+
+  // Draw platforms
+  platforms.forEach(p=>{
+    p.draw();
+    // collision for player1
+    if(player1.x<p.x+p.w && player1.x+player1.width>p.x &&
+       player1.y+player1.height< p.y+p.h + player1.vy &&
+       player1.y+player1.height>p.y){ player1.y = p.y-player1.height; player1.vy=0; player1.onGround=true;}
+    // collision for player2
+    if(player2.x<p.x+p.w && player2.x+player2.width>p.x &&
+       player2.y+player2.height< p.y+p.h + player2.vy &&
+       player2.y+player2.height>p.y){ player2.y = p.y-player2.height; player2.vy=0; player2.onGround=true;}
+  });
+
+  // Draw surprises
+  surprises.forEach(s=>{
+    s.draw();
+    // player1 collects
+    if(!s.collected && player1.x<s.x+s.size && player1.x+player1.width>s.x &&
+       player1.y<s.y+s.size && player1.y+player1.height>s.y){ s.collected=true; drawHearts(5);}
+    // player2 collects
+    if(!s.collected && player2.x<s.x+s.size && player2.x+player2.width>s.x &&
+       player2.y<s.y+s.size && player2.y+player2.height>s.y){ s.collected=true; drawHearts(5);}
+  });
+
+  // check final platform
+  const final = platforms[platforms.length-1];
+  if(player1.x + player1.width/2 > final.x && player1.x + player1.width/2 < final.x+final.w &&
+     player1.y+player1.height==final.y &&
+     player2.x + player2.width/2 > final.x && player2.x + player2.width/2 < final.x+final.w &&
+     player2.y+player2.height==final.y){
+       ctx.fillStyle='purple'; ctx.font='28px Arial';
+       ctx.fillText('SENİ ÇOK SEVİYORUM, İYİKİ VARSIN 💖',20,50);
+       drawHearts(20);
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+
+// Mobile controls
+document.getElementById('leftBtn').addEventListener('touchstart',()=>keys.left=true);
+document.getElementById('leftBtn').addEventListener('touchend',()=>keys.left=false);
+document.getElementById('rightBtn').addEventListener('touchstart',()=>keys.right=true);
+document.getElementById('rightBtn').addEventListener('touchend',()=>keys.right=false);
+document.getElementById('jumpBtn').addEventListener('touchstart',()=>keys.jump=true);
+document.getElementById('jumpBtn').addEventListener('touchend',()=>keys.jump=false);
+
+document.getElementById('leftBtn2').addEventListener('touchstart',()=>keys.left2=true);
+document.getElementById('leftBtn2').addEventListener('touchend',()=>keys.left2=false);
+document.getElementById('rightBtn2').addEventListener('touchstart',()=>keys.right2=true);
+document.getElementById('rightBtn2').addEventListener('touchend',()=>keys.right2=false);
+document.getElementById('jumpBtn2').addEventListener('touchstart',()=>keys.jump2=true);
+document.getElementById('jumpBtn2').addEventListener('touchend',()=>keys.jump2=false);
+</script>
+
+</body>
+</html>
